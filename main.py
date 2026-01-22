@@ -19,6 +19,21 @@ def main():
     try:
         agent = SmartFileSystemAgent()
         
+        # Check if voice input is available
+        use_voice = False
+        whisper = None
+        try:
+            from src.utils.whisper_transcriber import WhisperTranscriber
+            # Use small model for balance between speed and accuracy
+            # Supports Arabic (Egyptian) and English with code-switching
+            whisper = WhisperTranscriber(model_size="small", device="cpu", compute_type="int8")
+            use_voice = True
+            print("\n✅ Voice input enabled (Whisper)")
+            print("   Supports: Arabic (Egyptian) 🇪🇬, English 🇬🇧, and Mixed 🗣️")
+        except Exception as e:
+            logger.warning(f"Voice input not available: {e}")
+            print("\n⚠️ Voice input disabled (fallback to text input)")
+        
         print("\n" + "="*60)
         print("🤖 Alquad - Smart File System Agent")
         # Get provider info
@@ -34,11 +49,28 @@ def main():
         print("   - 'find projects folder'")
         print("   - 'launch application name'")
         print("   - 'open D: drive'")
+        if use_voice:
+            print("\n🎤 Voice Commands:")
+            print("   - Press Enter for text input")
+            print("   - Type 'voice' or 'v' for voice input")
         print("\nType 'q' to quit\n")
         
         while True:
             try:
-                query = input("📂 Request: ").strip()
+                if use_voice:
+                    input_method = input("📂 Input method (Enter=text, 'v'=voice, 'q'=quit): ").strip().lower()
+                    if input_method == 'q':
+                        print("👋 Goodbye!")
+                        break
+                    elif input_method in ['v', 'voice']:
+                        query = whisper.listen_and_transcribe()
+                        if not query:
+                            continue
+                    else:
+                        query = input("📂 Request: ").strip()
+                else:
+                    query = input("📂 Request: ").strip()
+                
                 if not query:
                     continue
                 if query.lower() == 'q':
