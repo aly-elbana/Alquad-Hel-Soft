@@ -1,7 +1,3 @@
-"""
-Logging utility module.
-"""
-
 import logging
 import sys
 from logging.config import dictConfig

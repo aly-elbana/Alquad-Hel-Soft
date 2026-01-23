@@ -1,5 +1,3 @@
-"""Utility modules."""
-
 from src.utils.file_system import (
     get_available_partitions,
     list_folder_items,

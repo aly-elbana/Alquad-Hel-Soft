@@ -1,7 +1,3 @@
-"""
-Simple in-memory cache for frequently accessed paths.
-"""
-
 from typing import Dict, Optional
 import time
 from collections import OrderedDict

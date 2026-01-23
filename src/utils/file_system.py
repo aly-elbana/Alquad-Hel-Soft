@@ -1,7 +1,3 @@
-"""
-File system utility functions.
-"""
-
 import os
 import string
 from typing import List, Dict, Any

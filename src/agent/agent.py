@@ -1,8 +1,3 @@
-"""
-Smart File System Agent
-Intelligent file system navigator using Ollama or Gemini
-"""
-
 import os
 import json
 import re

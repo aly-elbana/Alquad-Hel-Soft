@@ -1,7 +1,3 @@
-"""
-Gemini API client with retry logic and error handling.
-"""
-
 import time
 import logging
 from typing import Optional, Dict, Any

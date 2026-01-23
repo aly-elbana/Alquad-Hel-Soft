@@ -1,130 +1,260 @@
 """
-Whisper-based speech recognition for voice input.
+Optimized Whisper-based speech recognition for voice input.
+
+Features:
+- Safe temp files (no race conditions)
+- Auto model size based on hardware
+- Faster-Whisper backend
+- Arabic (Egyptian) + English code-switching
+- Hard cutoff at 20 seconds
+- Agent-friendly performance metrics
 """
 
+# =========================
+# Imports
+# =========================
 import os
+import time
+import tempfile
+import logging
+import torch
 import speech_recognition as sr
 from faster_whisper import WhisperModel
-import logging
-import time
 
-logger = logging.getLogger("FileSystemAgent")
+# =========================
+# Logger Setup
+# =========================
+logger = logging.getLogger("WhisperTranscriber")
+logger.setLevel(logging.INFO)
 
+
+# =========================
+# Whisper Transcriber Class
+# =========================
 class WhisperTranscriber:
-    """Speech-to-text using Faster-Whisper model."""
-    
-    def __init__(self, model_size="medium", device="auto", compute_type="auto"):
-        """
-        Initialize Whisper transcriber.
-        
-        Args:
-            model_size: tiny, base, small, medium, large-v3 (default: small)
-            device: 'cuda' (GPU) or 'cpu' or 'auto'
-            compute_type: 'float16' for GPU, 'int8' for CPU, 'auto' for auto-detect
-        """
-        logger.info(f"🚀 Loading Whisper Model ({model_size}) on {device}...")
-        start_time = time.time()
-        
-        try:
-            self.model = WhisperModel(
-                model_size, 
-                device=device, 
-                compute_type=compute_type
-            )
-            logger.info(f"✅ Model loaded successfully in {time.time() - start_time:.2f}s")
-        except Exception as e:
-            logger.error(f"❌ Failed to load model: {e}")
-            raise e
+    """
+    Speech-to-text using Faster-Whisper with:
+    - Auto language detection
+    - Arabic (Egyptian) + English code-switching
+    - Optimized temp file handling
+    - Controlled recording cutoff (20s)
+    """
 
+    # -------------------------
+    # Constructor
+    # -------------------------
+    def __init__(
+        self,
+        model_size: str | None = None,
+        device: str = "auto",
+        compute_type: str = "auto",
+        beam_size: int = 3,
+        verbose: bool = True,
+    ):
+        """
+        Initialize the Whisper transcriber.
+        """
+
+        self.verbose = verbose
+        self.beam_size = beam_size
+
+        # -------------------------
+        # Auto Model Selection
+        # -------------------------
+        use_cuda = torch.cuda.is_available() and device != "cpu"
+        if model_size is None:
+            model_size = "medium" if use_cuda else "small"
+
+        # -------------------------
+        # Load Whisper Model (Timed)
+        # -------------------------
+        logger.info(
+            f"Loading Whisper model [{model_size}] on [{device}]..."
+        )
+        load_start = time.time()
+
+        self.model = WhisperModel(
+            model_size,
+            device=device,
+            compute_type=compute_type
+        )
+
+        self.model_load_time = time.time() - load_start
+        logger.info(
+            f"Whisper model loaded in {self.model_load_time:.2f}s"
+        )
+
+        # -------------------------
+        # SpeechRecognition Setup
+        # -------------------------
         self.recognizer = sr.Recognizer()
 
-    def listen_and_transcribe(self):
-        """
-        Record audio and transcribe using Whisper.
-        
-        Returns:
-            Transcribed text or None if no speech detected
-        """
-        with sr.Microphone() as source:
-            print("\n🎤 (Whisper): I'm listening... speak now!")
-            
-            # Adjust for ambient noise
+        # Important tuning to avoid early cutoff
+        self.recognizer.pause_threshold = 1.5
+        self.recognizer.non_speaking_duration = 0.5
+        self.recognizer.dynamic_energy_threshold = True
+
+        self._calibrated = False
+
+        # -------------------------
+        # Metrics (agent-readable)
+        # -------------------------
+        self.last_transcribe_time = None
+        self.last_fallback_time = None
+        self.last_language = None
+        self.last_language_confidence = None
+
+
+    # =========================
+    # Private Helpers
+    # =========================
+    def _calibrate_microphone(self, source):
+        """Calibrate microphone once for ambient noise."""
+        if not self._calibrated:
+            logger.info("Calibrating microphone for ambient noise...")
             self.recognizer.adjust_for_ambient_noise(source, duration=0.5)
-            
+            self._calibrated = True
+
+
+    def _save_temp_wav(self, audio_data) -> str:
+        """Save audio to a safe temporary WAV file."""
+        with tempfile.NamedTemporaryFile(
+            suffix=".wav",
+            delete=False
+        ) as tmp:
+            tmp.write(audio_data.get_wav_data())
+            return tmp.name
+
+
+    def _detect_code_switch(self, text: str) -> bool:
+        """Detect Arabic + English mixed speech."""
+        has_arabic = any('\u0600' <= c <= '\u06FF' for c in text)
+        has_english = any(c.isalpha() and ord(c) < 128 for c in text)
+        return has_arabic and has_english
+
+
+    # =========================
+    # Public API
+    # =========================
+    def listen_and_transcribe(self) -> str | None:
+        """
+        Listen from microphone and transcribe speech.
+
+        Hard cutoff at 20 seconds.
+        """
+
+        # -------------------------
+        # Record Audio
+        # -------------------------
+        with sr.Microphone() as source:
+            if self.verbose:
+                print("\nListening...")
+
+            self._calibrate_microphone(source)
+
             try:
-                # Record audio
-                audio_data = self.recognizer.listen(source, timeout=5, phrase_time_limit=10)
-                print("⏳ Processing audio...")
-
-                # Save audio temporarily for Whisper
-                temp_wav = "temp_command.wav"
-                with open(temp_wav, "wb") as f:
-                    f.write(audio_data.get_wav_data())
-
-                # Transcribe using Whisper with support for Arabic (Egyptian) and English
-                # Strategy: Use auto-detect first for better code-switching support
-                # Whisper handles Arabic dialects (including Egyptian) well with auto-detect
-                segments, info = self.model.transcribe(
-                    temp_wav, 
-                    beam_size=5,
-                    language=None,  # Auto-detect (best for code-switching Arabic/English)
-                    vad_filter=True,  # Filter silence for speed
-                    initial_prompt="This is a conversation in Arabic (Egyptian dialect) and English. The user may mix both languages. Transcribe exactly as spoken, preserving both languages."
+                audio_data = self.recognizer.listen(
+                    source,
+                    timeout=10,
+                    phrase_time_limit=20
                 )
-                
-                # If auto-detect gives low confidence, try specific languages
-                if info.language_probability < 0.6:
-                    # Check if detected language is Arabic or English
-                    if info.language == "ar":
-                        # Already Arabic, but low confidence - might be mixed
-                        logger.info(f"⚠️ Low confidence for Arabic ({info.language_probability:.2f}), might be mixed speech")
-                    elif info.language == "en":
-                        # English detected, but low confidence - might be mixed
-                        logger.info(f"⚠️ Low confidence for English ({info.language_probability:.2f}), might be mixed speech")
-                    else:
-                        # Unknown language, try Arabic first (most common for Egyptian users)
-                        logger.info(f"⚠️ Unknown language detected ({info.language}), trying Arabic...")
-                        segments, info = self.model.transcribe(
-                            temp_wav, 
-                            beam_size=5,
-                            language="ar",  # Arabic (supports Egyptian dialect)
-                            vad_filter=True,
-                            initial_prompt="This is Arabic (Egyptian dialect) speech, possibly mixed with English words."
-                        )
-
-                # Combine segments into full text
-                full_text = " ".join([segment.text for segment in segments]).strip()
-                
-                # Clean up temp file
-                if os.path.exists(temp_wav):
-                    os.remove(temp_wav)
-
-                if full_text:
-                    # Map language codes to readable names
-                    lang_names = {
-                        "ar": "Arabic (Egyptian) 🇪🇬",
-                        "en": "English 🇬🇧",
-                    }
-                    lang_name = lang_names.get(info.language, f"{info.language}")
-                    
-                    # Check if text contains both Arabic and English characters (code-switching)
-                    has_arabic = any('\u0600' <= char <= '\u06FF' for char in full_text)
-                    has_english = any(char.isalpha() and ord(char) < 128 for char in full_text)
-                    
-                    if has_arabic and has_english:
-                        lang_name = "Mixed (Arabic/English) 🗣️"
-                        logger.info(f"🗣️ Detected: {lang_name} - Code-switching detected!")
-                    else:
-                        logger.info(f"🗣️ Detected Language: {lang_name} (Confidence: {info.language_probability:.2f})")
-                    
-                    print(f"📝 You said: {full_text}")
-                    return full_text
-                else:
-                    return None
-
             except sr.WaitTimeoutError:
-                print("⚠️ Timeout. No speech detected.")
+                logger.warning("No speech detected (timeout)")
                 return None
-            except Exception as e:
-                logger.error(f"Error during transcription: {e}")
+
+        if self.verbose:
+            print("Transcribing...")
+
+        temp_wav_path = self._save_temp_wav(audio_data)
+
+        try:
+            # -------------------------
+            # Primary Transcription
+            # -------------------------
+            start_transcribe = time.time()
+
+            segments, info = self.model.transcribe(
+                temp_wav_path,
+                beam_size=self.beam_size,
+                language=None,
+                vad_filter=True,
+                initial_prompt=(
+                    "This is a conversation in Arabic (Egyptian dialect) "
+                    "and English. The speaker may mix both languages. "
+                    "Transcribe exactly as spoken."
+                )
+            )
+
+            self.last_transcribe_time = time.time() - start_transcribe
+            logger.info(
+                f"Transcription took {self.last_transcribe_time:.2f}s"
+            )
+
+            # -------------------------
+            # Low Confidence Fallback
+            # -------------------------
+            if info.language_probability < 0.6:
+                logger.info(
+                    f"Low confidence "
+                    f"({info.language_probability:.2f}) "
+                    f"for [{info.language}], falling back to Arabic"
+                )
+
+                fallback_start = time.time()
+
+                segments, info = self.model.transcribe(
+                    temp_wav_path,
+                    beam_size=self.beam_size,
+                    language="ar",
+                    vad_filter=True,
+                    initial_prompt=(
+                        "This is Arabic (Egyptian dialect) speech, "
+                        "possibly mixed with English words."
+                    )
+                )
+
+                self.last_fallback_time = time.time() - fallback_start
+                logger.info(
+                    f"Fallback transcription took "
+                    f"{self.last_fallback_time:.2f}s"
+                )
+
+            # -------------------------
+            # Combine Segments
+            # -------------------------
+            full_text = " ".join(
+                s.text.strip() for s in segments
+            ).strip()
+
+            if not full_text:
                 return None
+
+            # -------------------------
+            # Language Reporting
+            # -------------------------
+            self.last_language = info.language
+            self.last_language_confidence = info.language_probability
+
+            if self._detect_code_switch(full_text):
+                logger.info("Detected mixed Arabic / English speech")
+            else:
+                logger.info(
+                    f"Detected language: {info.language} "
+                    f"(confidence: {info.language_probability:.2f})"
+                )
+
+            if self.verbose:
+                print(f"You said: {full_text}")
+
+            return full_text
+
+        except Exception:
+            logger.exception("Transcription failed")
+            return None
+
+        finally:
+            # -------------------------
+            # Cleanup
+            # -------------------------
+            if os.path.exists(temp_wav_path):
+                os.remove(temp_wav_path)
