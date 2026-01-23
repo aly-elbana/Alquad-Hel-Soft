@@ -75,6 +75,7 @@ markdown_creator.py
 connector.py
 check_models.py
 =0.3.0
+=1.11.4
 
 # Helper/documentation files (optional - can be added if needed)
 GIT_COMMANDS.md
