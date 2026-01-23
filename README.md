@@ -1,17 +1,17 @@
-# 🤖 Alquad - Smart File System Agent
+#  Alquad - Smart File System Agent
 
 Intelligent file system navigator powered by **Ollama** or **Gemini 2.5 Flash** that helps you find and open files/folders on your Windows PC using natural language.
 
-## ✨ Features
+##  Features
 
-- 🧠 **AI-Powered Navigation**: Uses Ollama or Gemini to intelligently navigate your file system
-- 🔄 **Dual LLM Support**: Choose between local Ollama model or cloud-based Gemini 2.5 Flash
-- 🔍 **Smart Search**: Finds files and folders by understanding natural language queries
-- 🚀 **Fast & Efficient**: Skips system drives initially for faster results
-- 📂 **Multi-Partition Support**: Searches across all available disk partitions
-- 🎯 **Intelligent Matching**: Understands context and matches folder names to your queries
-- 🔄 **Retry Logic**: Automatic retries for API calls with error handling
-- 📝 **Comprehensive Logging**: Detailed logs for debugging and monitoring
+-  **AI-Powered Navigation**: Uses Ollama or Gemini to intelligently navigate your file system
+-  **Dual LLM Support**: Choose between local Ollama model or cloud-based Gemini 2.5 Flash
+-  **Smart Search**: Finds files and folders by understanding natural language queries
+-  **Fast & Efficient**: Skips system drives initially for faster results
+-  **Multi-Partition Support**: Searches across all available disk partitions
+-  **Intelligent Matching**: Understands context and matches folder names to your queries
+-  **Retry Logic**: Automatic retries for API calls with error handling
+-  **Comprehensive Logging**: Detailed logs for debugging and monitoring
 
 ## 📋 Requirements
 
@@ -20,7 +20,7 @@ Intelligent file system navigator powered by **Ollama** or **Gemini 2.5 Flash** 
 - **For Ollama**: Ollama installed and running locally with model `deepseek-r1:7b-qwen-distill-q4_k_m`
 - **For Gemini**: Google API Key (get it from [Google AI Studio](https://aistudio.google.com/app/apikey))
 
-## 🚀 Installation
+##  Installation
 
 1. **Clone or download this repository**
 
@@ -40,7 +40,7 @@ Intelligent file system navigator powered by **Ollama** or **Gemini 2.5 Flash** 
    OLLAMA_MODEL=deepseek-r1:7b-qwen-distill-q4_k_m
    ```
 
-## 🎮 Usage
+##  Usage
 
 Run the main script:
 
@@ -62,7 +62,7 @@ The agent will:
 3. Find the target file/folder
 4. Open it automatically
 
-## 📁 Project Structure
+##  Project Structure
 
 ```
 Alquad/
@@ -87,7 +87,7 @@ Alquad/
 └── README.md
 ```
 
-## ⚙️ Configuration
+##  Configuration
 
 Edit `src/config/settings.py` to customize:
 
@@ -97,7 +97,7 @@ Edit `src/config/settings.py` to customize:
 - `retry_attempts`: API retry attempts (default: 3)
 - `retry_delay`: Delay between retries in seconds (default: 1.0)
 
-## 🔧 How It Works
+##  How It Works
 
 1. **Query Processing**: User enters a natural language query
 2. **Partition Detection**: Agent identifies target partition (if specified)
@@ -105,7 +105,7 @@ Edit `src/config/settings.py` to customize:
 4. **Recursive Exploration**: Agent navigates through folders until target is found
 5. **Auto-Open**: Opens the found file/folder automatically
 
-## 📝 Logging
+##  Logging
 
 Logs are stored in `logs/agent.log` with rotation (10MB max, 5 backups).
 
