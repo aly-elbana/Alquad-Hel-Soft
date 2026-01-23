@@ -13,7 +13,7 @@ Intelligent file system navigator powered by **Ollama** or **Gemini 2.5 Flash** 
 -  **Retry Logic**: Automatic retries for API calls with error handling
 -  **Comprehensive Logging**: Detailed logs for debugging and monitoring
 
-## 📋 Requirements
+##  Requirements
 
 - Python 3.8+
 - Windows OS (Linux/macOS support available)
