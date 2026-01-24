@@ -1,18 +1,3 @@
-"""
-Optimized Whisper-based speech recognition for voice input.
-
-Features:
-- Safe temp files (no race conditions)
-- Auto model size based on hardware
-- Faster-Whisper backend
-- Arabic (Egyptian) + English code-switching
-- Hard cutoff at 20 seconds
-- Agent-friendly performance metrics
-"""
-
-# =========================
-# Imports
-# =========================
 import os
 import time
 import tempfile
@@ -91,7 +76,7 @@ class WhisperTranscriber:
 
         # Important tuning to avoid early cutoff
         self.recognizer.pause_threshold = 1.5
-        self.recognizer.non_speaking_duration = 0.5
+        self.recognizer.non_speaking_duration = 1
         self.recognizer.dynamic_energy_threshold = True
 
         self._calibrated = False
