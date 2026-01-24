@@ -52,7 +52,6 @@ vector_db/
 
 # OS
 Thumbs.db
-.DS_Store
 
 # Project specific
 rag_knowledge_base/
