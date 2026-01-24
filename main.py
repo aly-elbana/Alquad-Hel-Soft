@@ -1,11 +1,5 @@
 import sys
 from pathlib import Path
-
-
-BASE_DIR = Path(__file__).parent
-sys.path.insert(0, str(BASE_DIR))
-
-
 from src.utils.logger import setup_logger
 from src.agent.agent import SmartFileSystemAgent
 from src.config.settings import (
@@ -13,6 +7,9 @@ from src.config.settings import (
     OLLAMA_CONFIG,
     GEMINI_MODELS
 )
+
+BASE_DIR = Path(__file__).parent
+sys.path.insert(0, str(BASE_DIR))
 
 
 # =========================
