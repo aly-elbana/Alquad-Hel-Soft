@@ -3,7 +3,8 @@ import sys
 from logging.config import dictConfig
 from pathlib import Path
 
-from src.config.settings import LOGGING_CONFIG
+from ..config.settings import LOGGING_CONFIG
+
 
 def setup_logger(name: str = "FileSystemAgent") -> logging.Logger:
     """Setup and return a configured logger."""

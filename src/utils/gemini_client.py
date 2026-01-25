@@ -4,7 +4,7 @@ from typing import Optional, Dict, Any
 import google.generativeai as genai
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
 
-from src.config.settings import GEMINI_API_KEY, GEMINI_MODELS, AGENT_CONFIG
+from ..config.settings import GEMINI_API_KEY, GEMINI_MODELS, AGENT_CONFIG
 
 logger = logging.getLogger("FileSystemAgent")
 

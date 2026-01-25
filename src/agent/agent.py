@@ -4,8 +4,8 @@ import re
 import logging
 from typing import List, Dict, Any, Optional
 
-from src.config.settings import AGENT_CONFIG, validate_config, LLM_PROVIDER
-from src.utils.file_system import (
+from ..config.settings import AGENT_CONFIG, validate_config, LLM_PROVIDER
+from ..utils.file_system import (
     get_available_partitions,
     list_folder_items,
     format_folder_listing,
@@ -14,6 +14,7 @@ from src.utils.file_system import (
 )
 
 logger = logging.getLogger("FileSystemAgent")
+
 
 class SmartFileSystemAgent:
     """Intelligent file system navigator using Ollama or Gemini."""
@@ -25,13 +26,13 @@ class SmartFileSystemAgent:
         
         # Initialize LLM client based on provider
         if LLM_PROVIDER == "ollama":
-            from src.utils.ollama_client import OllamaClient
-            from src.config.settings import OLLAMA_CONFIG
+            from ..utils.ollama_client import OllamaClient
+            from ..config.settings import OLLAMA_CONFIG
             self.llm = OllamaClient()
             logger.info(f"✅ Using Ollama: {OLLAMA_CONFIG['model_name']}")
         elif LLM_PROVIDER == "gemini":
-            from src.utils.gemini_client import GeminiClient
-            from src.config.settings import GEMINI_MODELS
+            from ..utils.gemini_client import GeminiClient
+            from ..config.settings import GEMINI_MODELS
             self.llm = GeminiClient()
             logger.info(f"✅ Using Gemini: {GEMINI_MODELS[0] if GEMINI_MODELS else 'default'}")
         else:
@@ -138,6 +139,7 @@ IMPORTANT: Respond ONLY with valid JSON, no other text."""
                 # Also handle simpler case: any string value containing backslashes after "path":
                 # This catches cases where the regex above might miss
                 simple_pattern = r'("path"\s*:\s*")([^"]*[A-Z]:\\[^"]*?)(")'
+                
                 def simple_escape(match):
                     key = match.group(1)
                     value = match.group(2)
@@ -183,7 +185,7 @@ IMPORTANT: Respond ONLY with valid JSON, no other text."""
             # But be more careful - don't extract partial paths
             path_patterns = [
                 r'[A-Z]:\\[^\s"\'<>\)]+',  # Backslashes - stop at closing parens too
-                r'[A-Z]:/[^\s"\'<>\)]+',   # Forward slashes
+                r'[A-Z]:/[^\s"\'<>\)]+',  # Forward slashes
             ]
             
             for pattern in path_patterns:
@@ -252,16 +254,19 @@ IMPORTANT: Respond ONLY with valid JSON, no other text."""
                 logger.info(f"✅ Partition contains {len(matching_folders)} matching folders - letting model decide")
             elif not matching_folders and matching_executables and not user_wants_partition:
                 # Only executables found, but user didn't ask for partition - continue to model decision
-                logger.info(f"✅ Partition contains {len(matching_executables)} matching executables - letting model decide")
+                logger.info(
+                    f"✅ Partition contains {len(matching_executables)} matching executables - letting model decide")
             else:
                 # User wants partition or no clear folder match
-                logger.info(f"✅ Partition contains {matching_items_count} matching items - opening partition: {partition}")
+                logger.info(
+                    f"✅ Partition contains {matching_items_count} matching items - opening partition: {partition}")
                 return partition
         
         # Score folders by keyword match - prioritize exact/simple matches
         scored_folders = []
         # Filter out common/weak words that don't help distinguish
-        weak_words = {"the", "my", "open", "find", "launch", "games", "game", "app", "application", "program", "software", "folder", "folders"}
+        weak_words = {"the", "my", "open", "find", "launch", "games", "game", "app", "application", "program",
+                      "software", "folder", "folders"}
         important_words = [w for w in query_words if w not in weak_words and len(w) > 2]
         
         # Define synonyms for better matching
@@ -293,7 +298,8 @@ IMPORTANT: Respond ONLY with valid JSON, no other text."""
             # Check direct matches
             important_matches = sum(1 for word in important_words if word in folder_name_lower)
             # Check synonym matches
-            synonym_matches = sum(1 for word in expanded_important_words if word in folder_name_lower and word not in important_words)
+            synonym_matches = sum(
+                1 for word in expanded_important_words if word in folder_name_lower and word not in important_words)
             weak_matches = sum(1 for word in query_words if word in folder_name_lower and word in weak_words)
             
             # Prioritize important word matches (synonyms get bonus too)
@@ -304,7 +310,8 @@ IMPORTANT: Respond ONLY with valid JSON, no other text."""
             exact_match = False
             if query_phrase and query_phrase in folder_name_lower:
                 # Check if folder name is close to query phrase
-                if folder_name_lower == query_phrase or folder_name_lower.startswith(query_phrase) or folder_name_lower.endswith(query_phrase):
+                if folder_name_lower == query_phrase or folder_name_lower.startswith(
+                        query_phrase) or folder_name_lower.endswith(query_phrase):
                     exact_match = True
                     score += 10  # Big bonus for exact/simple match
             
@@ -314,7 +321,8 @@ IMPORTANT: Respond ONLY with valid JSON, no other text."""
                     # Check if it's a synonym match (not direct)
                     if word not in important_words:
                         score += 5  # Bonus for synonym match
-                        if word in folder_name_lower.split() or any(part == word for part in folder_name_lower.split("-") + folder_name_lower.split("_")):
+                        if word in folder_name_lower.split() or any(
+                                part == word for part in folder_name_lower.split("-") + folder_name_lower.split("_")):
                             exact_match = True
                             score += 5  # Extra bonus for exact synonym match
             
@@ -335,8 +343,10 @@ IMPORTANT: Respond ONLY with valid JSON, no other text."""
             # Only use quick match if:
             # 1. Has important word matches (not just weak words)
             # 2. Score is high enough (>= 3) OR exact match OR significantly better than others
-            if best_important > 0 and (best_exact or best_score >= 3 or (len(scored_folders) == 1) or (len(scored_folders) > 1 and best_score > scored_folders[1][0] * 2)):
-                logger.info(f"📋 Quick match found: {best_folder['name']} (score: {best_score}, important: {best_important}, exact: {best_exact})")
+            if best_important > 0 and (best_exact or best_score >= 3 or (len(scored_folders) == 1) or (
+                    len(scored_folders) > 1 and best_score > scored_folders[1][0] * 2)):
+                logger.info(
+                    f"📋 Quick match found: {best_folder['name']} (score: {best_score}, important: {best_important}, exact: {best_exact})")
                 return best_folder["path"]
         
         formatted_listing = format_folder_listing(listing_data)
@@ -367,7 +377,7 @@ SMART DECISION RULES:
 9. IMPORTANT: If the current partition has matching items, prefer opening the partition over exploring subfolders
 10. If the user didn't mention setup and the folder you found contains a setup file, continue scanning to find the exact item the user is looking for
 11. Only return the setup if the user asked for it or there is nothing else"""
-
+        
         # Get model decision
         response_text = self.llm.generate_content(prompt)
         if not response_text:
@@ -412,7 +422,7 @@ SMART DECISION RULES:
         # Fallback: try to extract path from response (handle both slash types)
         path_patterns = [
             r'([A-Z]:\\[^\s"\'<>\)]+)',  # Backslashes
-            r'([A-Z]:/[^\s"\'<>\)]+)',   # Forward slashes
+            r'([A-Z]:/[^\s"\'<>\)]+)',  # Forward slashes
         ]
         
         all_paths = []
@@ -433,7 +443,8 @@ SMART DECISION RULES:
         
         return None
     
-    def _navigate_to_target(self, start_path: str, user_query: str, depth: int = 0, visited_paths: Optional[set] = None) -> Optional[str]:
+    def _navigate_to_target(self, start_path: str, user_query: str, depth: int = 0,
+                            visited_paths: Optional[set] = None) -> Optional[str]:
         """Recursively navigate through folders to find the target."""
         if depth >= self.max_depth:
             logger.warning(f"⚠️ Maximum depth reached: {depth}")
@@ -536,13 +547,15 @@ SMART DECISION RULES:
         # SMART CHECK: If current folder contains multiple matching items, it's likely the target folder
         # Count how many items in current folder match the query
         matching_items_count = 0
-        matching_executables = [e for e in main_executables if any(word in e["name"].lower() for word in query_variations)]
+        matching_executables = [e for e in main_executables if
+                                any(word in e["name"].lower() for word in query_variations)]
         matching_folders = [f for f in folders if any(word in f["name"].lower() for word in query_variations)]
         matching_items_count = len(matching_executables) + len(matching_folders)
         
         # If we have multiple matching items in current folder, this folder is likely the target
         if matching_items_count >= 2:
-            logger.info(f"✅ Current folder contains {matching_items_count} matching items - opening parent folder: {start_path}")
+            logger.info(
+                f"✅ Current folder contains {matching_items_count} matching items - opening parent folder: {start_path}")
             return start_path
         
         # If we have at least one strong match (executable or program folder), consider opening parent
@@ -646,8 +659,8 @@ SMART DECISION RULES:
                     if "error" not in folder_listing:
                         # Check if there are main executables or folders (not just setup files)
                         has_main_items = (
-                            len(folder_listing.get("executables", [])) > 0 or
-                            len(folder_listing.get("folders", [])) > 0
+                                len(folder_listing.get("executables", [])) > 0 or
+                                len(folder_listing.get("folders", [])) > 0
                         )
                         if has_main_items:
                             # Continue exploring - there might be the actual program
@@ -665,328 +678,340 @@ SMART DECISION RULES:
                 return None
         
         elif action == "not_found":
-                # Even if model says not_found, ALWAYS try to find best match from listing
-                # This handles cases where model is too strict or misses obvious matches
-                query_lower = user_query.lower()
-                query_words = extract_keywords(user_query)
-                query_variations = set(query_words)
-                
-                # Check if user wants setup
-                setup_keywords = ['setup', 'install', 'installer', 'uninstall']
-                user_wants_setup = any(keyword in query_lower for keyword in setup_keywords)
-                
-                # Add common program-related terms for better matching
-                common_program_terms = ["prog", "program", "app", "application", "bin"]
-                # Always add program terms if we're looking for a program
-                query_variations.update(common_program_terms)
-                
-                folders = listing_data.get("folders", [])
-                executables = listing_data.get("executables", [])
-                
-                # Get other files too
-                other_files = listing_data.get("other_files", [])
-                logger.info(f"📋 Model said not_found, but checking {len(folders)} folders, {len(executables)} executables, and {len(other_files)} other files in {start_path}...")
-                
-                # Check if current folder contains files matching the query
-                query_lower = user_query.lower()
-                query_words = extract_keywords(user_query)
-                
-                # Check if files in folder match query keywords
-                matching_files = []
-                for file in other_files:
-                    file_name_lower = file["name"].lower()
-                    # Check if file name contains query keywords
-                    if any(word in file_name_lower for word in query_words if len(word) > 2):
-                        matching_files.append(file)
-                
-                # If we have multiple matching files, this folder is likely the target
-                if len(matching_files) >= 2:
-                    logger.info(f"📋 Found {len(matching_files)} matching files in current folder - opening: {start_path}")
-                    return start_path
-                
-                # If no folders or executables found, try direct listing
-                if not folders and not executables and not other_files:
-                    logger.warning(f"⚠️ No items found via list_folder_items in {start_path} - trying direct listing...")
-                    try:
-                        direct_items = os.listdir(start_path)
-                        logger.info(f"📋 Direct listing shows {len(direct_items)} items")
-                        # Try to find folders and files manually
-                        found_items = False
-                        for item in direct_items:
-                            if item.startswith('.'):
-                                continue
-                            item_path = os.path.join(start_path, item)
-                            try:
-                                if os.path.isdir(item_path):
-                                    folders.append({
+            # Even if model says not_found, ALWAYS try to find best match from listing
+            # This handles cases where model is too strict or misses obvious matches
+            query_lower = user_query.lower()
+            query_words = extract_keywords(user_query)
+            query_variations = set(query_words)
+            
+            # Check if user wants setup
+            setup_keywords = ['setup', 'install', 'installer', 'uninstall']
+            user_wants_setup = any(keyword in query_lower for keyword in setup_keywords)
+            
+            # Add common program-related terms for better matching
+            common_program_terms = ["prog", "program", "app", "application", "bin"]
+            # Always add program terms if we're looking for a program
+            query_variations.update(common_program_terms)
+            
+            folders = listing_data.get("folders", [])
+            executables = listing_data.get("executables", [])
+            
+            # Get other files too
+            other_files = listing_data.get("other_files", [])
+            logger.info(
+                f"📋 Model said not_found, but checking {len(folders)} folders, {len(executables)} executables, and {len(other_files)} other files in {start_path}...")
+            
+            # Check if current folder contains files matching the query
+            query_lower = user_query.lower()
+            query_words = extract_keywords(user_query)
+            
+            # Check if files in folder match query keywords
+            matching_files = []
+            for file in other_files:
+                file_name_lower = file["name"].lower()
+                # Check if file name contains query keywords
+                if any(word in file_name_lower for word in query_words if len(word) > 2):
+                    matching_files.append(file)
+            
+            # If we have multiple matching files, this folder is likely the target
+            if len(matching_files) >= 2:
+                logger.info(f"📋 Found {len(matching_files)} matching files in current folder - opening: {start_path}")
+                return start_path
+            
+            # If no folders or executables found, try direct listing
+            if not folders and not executables and not other_files:
+                logger.warning(f"⚠️ No items found via list_folder_items in {start_path} - trying direct listing...")
+                try:
+                    direct_items = os.listdir(start_path)
+                    logger.info(f"📋 Direct listing shows {len(direct_items)} items")
+                    # Try to find folders and files manually
+                    found_items = False
+                    for item in direct_items:
+                        if item.startswith('.'):
+                            continue
+                        item_path = os.path.join(start_path, item)
+                        try:
+                            if os.path.isdir(item_path):
+                                folders.append({
+                                    "name": item,
+                                    "path": item_path
+                                })
+                                logger.info(f"📋 Found folder via direct listing: {item}")
+                                found_items = True
+                            elif os.path.isfile(item_path):
+                                # Check if it's a relevant file type (use config)
+                                from ..config.settings import SYSTEM_CONFIG
+                                ext = os.path.splitext(item)[1].lower()
+                                if ext in SYSTEM_CONFIG["other_file_extensions"] or ext in SYSTEM_CONFIG[
+                                    "executable_extensions"]:
+                                    other_files.append({
                                         "name": item,
                                         "path": item_path
                                     })
-                                    logger.info(f"📋 Found folder via direct listing: {item}")
+                                    logger.info(f"📋 Found file via direct listing: {item}")
                                     found_items = True
-                                elif os.path.isfile(item_path):
-                                    # Check if it's a relevant file type (use config)
-                                    from src.config.settings import SYSTEM_CONFIG
-                                    ext = os.path.splitext(item)[1].lower()
-                                    if ext in SYSTEM_CONFIG["other_file_extensions"] or ext in SYSTEM_CONFIG["executable_extensions"]:
-                                        other_files.append({
-                                            "name": item,
-                                            "path": item_path
-                                        })
-                                        logger.info(f"📋 Found file via direct listing: {item}")
-                                        found_items = True
-                            except (PermissionError, OSError):
-                                continue
-                        if found_items:
-                            logger.info(f"📋 Found {len(folders)} folders and {len(other_files)} files via direct listing")
-                            # After direct listing, immediately check if this folder matches the query
-                            if other_files:
-                                folder_name_lower = os.path.basename(start_path).lower()
-                                query_lower = user_query.lower()
-                                
-                                # Extract keywords from query
-                                query_keywords = extract_keywords(user_query)
-                                
-                                # Define synonyms for better matching
-                                synonyms_map = {
-                                    "cv": ["resume", "resumes", "curriculum", "vitae"],
-                                    "resume": ["cv", "curriculum", "vitae"],
-                                    "certificate": ["cert", "certs", "certificates"],
-                                    "cert": ["certificate", "certificates", "certs"],
-                                    "document": ["doc", "docs", "documents"],
-                                    "photo": ["picture", "pictures", "image", "images"],
-                                    "movie": ["film", "films", "video", "videos"],
-                                    "music": ["song", "songs", "audio", "tracks"],
-                                }
-                                
-                                # Expand query keywords with synonyms
-                                expanded_keywords = set(query_keywords)
-                                for keyword in query_keywords:
+                        except (PermissionError, OSError):
+                            continue
+                    if found_items:
+                        logger.info(f"📋 Found {len(folders)} folders and {len(other_files)} files via direct listing")
+                        # After direct listing, immediately check if this folder matches the query
+                        if other_files:
+                            folder_name_lower = os.path.basename(start_path).lower()
+                            query_lower = user_query.lower()
+                            
+                            # Extract keywords from query
+                            query_keywords = extract_keywords(user_query)
+                            
+                            # Define synonyms for better matching
+                            synonyms_map = {
+                                "cv": ["resume", "resumes", "curriculum", "vitae"],
+                                "resume": ["cv", "curriculum", "vitae"],
+                                "certificate": ["cert", "certs", "certificates"],
+                                "cert": ["certificate", "certificates", "certs"],
+                                "document": ["doc", "docs", "documents"],
+                                "photo": ["picture", "pictures", "image", "images"],
+                                "movie": ["film", "films", "video", "videos"],
+                                "music": ["song", "songs", "audio", "tracks"],
+                            }
+                            
+                            # Expand query keywords with synonyms
+                            expanded_keywords = set(query_keywords)
+                            for keyword in query_keywords:
+                                keyword_lower = keyword.lower()
+                                if keyword_lower in synonyms_map:
+                                    expanded_keywords.update(synonyms_map[keyword_lower])
+                            
+                            # Check if folder name matches query keywords (flexible matching with synonyms)
+                            folder_matches = False
+                            for keyword in expanded_keywords:
+                                if len(keyword) > 2:
                                     keyword_lower = keyword.lower()
-                                    if keyword_lower in synonyms_map:
-                                        expanded_keywords.update(synonyms_map[keyword_lower])
-                                
-                                # Check if folder name matches query keywords (flexible matching with synonyms)
-                                folder_matches = False
-                                for keyword in expanded_keywords:
-                                    if len(keyword) > 2:
-                                        keyword_lower = keyword.lower()
-                                        # Check if keyword is in folder name or vice versa
-                                        if keyword_lower in folder_name_lower or folder_name_lower in keyword_lower or any(part in folder_name_lower for part in keyword_lower.split() if len(part) > 2):
-                                            folder_matches = True
-                                            break
-                                
-                                # Check if query mentions folder name or related terms
-                                query_mentions_folder = False
-                                folder_parts = folder_name_lower.split()
-                                for part in folder_parts:
-                                    if len(part) > 2:
-                                        # Check direct match
-                                        if part in query_lower:
+                                    # Check if keyword is in folder name or vice versa
+                                    if keyword_lower in folder_name_lower or folder_name_lower in keyword_lower or any(
+                                            part in folder_name_lower for part in keyword_lower.split() if
+                                            len(part) > 2):
+                                        folder_matches = True
+                                        break
+                            
+                            # Check if query mentions folder name or related terms
+                            query_mentions_folder = False
+                            folder_parts = folder_name_lower.split()
+                            for part in folder_parts:
+                                if len(part) > 2:
+                                    # Check direct match
+                                    if part in query_lower:
+                                        query_mentions_folder = True
+                                        break
+                                    # Check synonyms
+                                    for keyword in expanded_keywords:
+                                        if len(keyword) > 2 and (part in keyword.lower() or keyword.lower() in part):
                                             query_mentions_folder = True
                                             break
-                                        # Check synonyms
-                                        for keyword in expanded_keywords:
-                                            if len(keyword) > 2 and (part in keyword.lower() or keyword.lower() in part):
-                                                query_mentions_folder = True
-                                                break
-                                    if query_mentions_folder:
-                                        break
-                                
-                                # If folder name matches query or query mentions folder, and we have files - this is the target
-                                if (folder_matches or query_mentions_folder) and len(other_files) >= 1:
-                                    logger.info(f"📋 Folder '{os.path.basename(start_path)}' matches query and contains {len(other_files)} files - opening: {start_path}")
+                                if query_mentions_folder:
+                                    break
+                            
+                            # If folder name matches query or query mentions folder, and we have files - this is the target
+                            if (folder_matches or query_mentions_folder) and len(other_files) >= 1:
+                                logger.info(
+                                    f"📋 Folder '{os.path.basename(start_path)}' matches query and contains {len(other_files)} files - opening: {start_path}")
+                                return start_path
+                            
+                            # If we have multiple files and folder name is short/simple, likely the target folder
+                            if len(other_files) >= 2:
+                                # Check if folder name could be related to query (e.g., "certs" -> "certificates")
+                                folder_short = folder_name_lower.replace(" ", "").replace("_", "").replace("-", "")
+                                query_short = query_lower.replace(" ", "").replace("_", "").replace("-", "")
+                                if any(part in query_short for part in folder_short.split() if len(part) > 3) or len(
+                                        folder_name_lower.split()) <= 2:
+                                    logger.info(
+                                        f"📋 Found {len(other_files)} files in folder matching query context - opening: {start_path}")
                                     return start_path
-                                
-                                # If we have multiple files and folder name is short/simple, likely the target folder
-                                if len(other_files) >= 2:
-                                    # Check if folder name could be related to query (e.g., "certs" -> "certificates")
-                                    folder_short = folder_name_lower.replace(" ", "").replace("_", "").replace("-", "")
-                                    query_short = query_lower.replace(" ", "").replace("_", "").replace("-", "")
-                                    if any(part in query_short for part in folder_short.split() if len(part) > 3) or len(folder_name_lower.split()) <= 2:
-                                        logger.info(f"📋 Found {len(other_files)} files in folder matching query context - opening: {start_path}")
-                                        return start_path
-                    except Exception as e:
-                        logger.error(f"Error in direct listing: {e}")
-                
-                # Separate setup files from main executables
-                main_executables = [e for e in executables if not any(kw in e["name"].lower() for kw in setup_keywords)]
-                setup_files = [e for e in executables if any(kw in e["name"].lower() for kw in setup_keywords)]
-                
-                # Check other files that might match the query
-                if other_files:
-                    # If we have multiple matching files, this folder is likely the target
-                    matching_other_files = [f for f in other_files if any(word in f["name"].lower() for word in query_words if len(word) > 2)]
-                    if len(matching_other_files) >= 2:
-                        logger.info(f"📋 Found {len(matching_other_files)} matching files - opening: {start_path}")
-                        return start_path
-                    # If we have files and query matches folder name, likely the target
-                    folder_name_lower = os.path.basename(start_path).lower()
-                    if len(matching_other_files) >= 1 and any(word in folder_name_lower for word in query_words if len(word) > 2):
-                        logger.info(f"📋 Found matching files in folder matching query - opening: {start_path}")
-                        return start_path
-                    # If folder name matches query and we have any files, likely the target
-                    if any(word in folder_name_lower for word in query_words if len(word) > 2) and len(other_files) >= 1:
-                        logger.info(f"📋 Found {len(other_files)} files in folder matching query name - opening: {start_path}")
-                        return start_path
-                
-                # Check main executables first (prioritize non-setup)
-                for exe in main_executables:
+                except Exception as e:
+                    logger.error(f"Error in direct listing: {e}")
+            
+            # Separate setup files from main executables
+            main_executables = [e for e in executables if not any(kw in e["name"].lower() for kw in setup_keywords)]
+            setup_files = [e for e in executables if any(kw in e["name"].lower() for kw in setup_keywords)]
+            
+            # Check other files that might match the query
+            if other_files:
+                # If we have multiple matching files, this folder is likely the target
+                matching_other_files = [f for f in other_files if
+                                        any(word in f["name"].lower() for word in query_words if len(word) > 2)]
+                if len(matching_other_files) >= 2:
+                    logger.info(f"📋 Found {len(matching_other_files)} matching files - opening: {start_path}")
+                    return start_path
+                # If we have files and query matches folder name, likely the target
+                folder_name_lower = os.path.basename(start_path).lower()
+                if len(matching_other_files) >= 1 and any(
+                        word in folder_name_lower for word in query_words if len(word) > 2):
+                    logger.info(f"📋 Found matching files in folder matching query - opening: {start_path}")
+                    return start_path
+                # If folder name matches query and we have any files, likely the target
+                if any(word in folder_name_lower for word in query_words if len(word) > 2) and len(other_files) >= 1:
+                    logger.info(
+                        f"📋 Found {len(other_files)} files in folder matching query name - opening: {start_path}")
+                    return start_path
+            
+            # Check main executables first (prioritize non-setup)
+            for exe in main_executables:
+                exe_name_lower = exe["name"].lower()
+                # More lenient matching - check if any query word or variation matches
+                if query_variations and any(word in exe_name_lower for word in query_variations):
+                    logger.info(f"📋 Found executable match despite not_found: {exe['path']}")
+                    return exe["path"]
+                # Also check partial matches
+                if any(word in exe_name_lower for word in query_words if len(word) > 3):
+                    logger.info(f"📋 Found partial executable match: {exe['path']}")
+                    return exe["path"]
+            
+            # Only check setup files if user wants them or no other options
+            if user_wants_setup or len(main_executables) == 0:
+                for exe in setup_files:
                     exe_name_lower = exe["name"].lower()
-                    # More lenient matching - check if any query word or variation matches
                     if query_variations and any(word in exe_name_lower for word in query_variations):
-                        logger.info(f"📋 Found executable match despite not_found: {exe['path']}")
+                        logger.info(f"📋 Found setup file match: {exe['path']}")
                         return exe["path"]
-                    # Also check partial matches
-                    if any(word in exe_name_lower for word in query_words if len(word) > 3):
-                        logger.info(f"📋 Found partial executable match: {exe['path']}")
-                        return exe["path"]
+            
+            # Check folders - be more lenient here
+            best_match = None
+            best_score = 0
+            for folder in folders:
+                folder_name_lower = folder["name"].lower()
+                is_setup_folder = any(kw in folder_name_lower for kw in setup_keywords)
                 
-                # Only check setup files if user wants them or no other options
-                if user_wants_setup or len(main_executables) == 0:
-                    for exe in setup_files:
-                        exe_name_lower = exe["name"].lower()
-                        if query_variations and any(word in exe_name_lower for word in query_variations):
-                            logger.info(f"📋 Found setup file match: {exe['path']}")
-                            return exe["path"]
+                # Skip setup folders unless user wants them
+                if is_setup_folder and not user_wants_setup:
+                    continue
                 
-                # Check folders - be more lenient here
-                best_match = None
-                best_score = 0
-                for folder in folders:
-                    folder_name_lower = folder["name"].lower()
-                    is_setup_folder = any(kw in folder_name_lower for kw in setup_keywords)
-                    
-                    # Skip setup folders unless user wants them
-                    if is_setup_folder and not user_wants_setup:
-                        continue
-                    
-                    score = 0
-                    # Score by keyword matches
-                    for word in query_variations:
-                        if word in folder_name_lower:
-                            score += 2  # Higher weight for variations
-                    for word in query_words:
-                        if word in folder_name_lower:
-                            score += 3  # Even higher for actual query words
-                    
-                    # Bonus for common program folder names
-                    if any(term in folder_name_lower for term in common_program_terms):
-                        score += 5  # Strong bonus for program folders
-                    
-                    # Bonus if we're in a parent folder (e.g., "Davinci") and found subfolder (e.g., "prog")
-                    if depth > 0:
-                        # Check if parent folder name is in query (e.g., "davinci" in query and we're in "Davinci" folder)
-                        parent_name = os.path.basename(start_path).lower()
-                        if any(word in parent_name for word in query_words):
-                            score += 3  # Bonus for subfolders of matching parent
-                    
-                    # Penalty for setup folders if user didn't ask
-                    if is_setup_folder:
-                        score -= 1
-                    
-                    if score > best_score:
-                        best_score = score
-                        best_match = folder["path"]
+                score = 0
+                # Score by keyword matches
+                for word in query_variations:
+                    if word in folder_name_lower:
+                        score += 2  # Higher weight for variations
+                for word in query_words:
+                    if word in folder_name_lower:
+                        score += 3  # Even higher for actual query words
                 
-                # If we found a match with any score, use it (be more lenient)
-                if best_match and best_score > 0:
-                    logger.info(f"📋 Using best match despite not_found: {best_match} (score: {best_score})")
-                    # Recursively explore the best match
-                    result = self._navigate_to_target(best_match, user_query, depth + 1, visited_paths)
-                    if result:
-                        return result
-                    # If exploration didn't find anything, return the folder itself
-                    return best_match
+                # Bonus for common program folder names
+                if any(term in folder_name_lower for term in common_program_terms):
+                    score += 5  # Strong bonus for program folders
                 
-                # Last resort: if nothing else found and there are setup files, return the best setup file
-                if not user_wants_setup and len(setup_files) > 0 and len(main_executables) == 0:
-                    logger.info(f"📋 No main items found, using setup file as last resort")
-                    return setup_files[0]["path"]
-                
-                # Even if score is 0, if we're in a matching parent folder, try exploring ALL non-setup folders
+                # Bonus if we're in a parent folder (e.g., "Davinci") and found subfolder (e.g., "prog")
                 if depth > 0:
+                    # Check if parent folder name is in query (e.g., "davinci" in query and we're in "Davinci" folder)
                     parent_name = os.path.basename(start_path).lower()
                     if any(word in parent_name for word in query_words):
-                        # We're in a matching parent folder (e.g., "Davinci"), try all non-setup folders
-                        logger.info(f"📋 In matching parent folder '{parent_name}', checking all subfolders...")
-                        non_setup_folders = [f for f in folders if not any(kw in f["name"].lower() for kw in setup_keywords)]
-                        
-                        # Prioritize folders with program-related terms
-                        program_folders = [f for f in non_setup_folders if any(term in f["name"].lower() for term in common_program_terms)]
-                        if program_folders:
-                            # Try program folders first
-                            for folder in program_folders:
-                                logger.info(f"📋 Exploring program folder: {folder['path']}")
-                                result = self._navigate_to_target(folder["path"], user_query, depth + 1, visited_paths)
-                                if result:
-                                    return result
-                        
-                        # Try other non-setup folders
-                        for folder in non_setup_folders:
-                            if folder not in program_folders:  # Skip already tried
-                                logger.info(f"📋 Exploring folder: {folder['path']}")
-                                result = self._navigate_to_target(folder["path"], user_query, depth + 1, visited_paths)
-                                if result:
-                                    return result
-                        
-                        # If we found folders but nothing matched, return the first program folder or first folder
-                        if program_folders:
-                            logger.info(f"📋 No match found, returning program folder: {program_folders[0]['path']}")
-                            return program_folders[0]["path"]
-                        elif non_setup_folders:
-                            logger.info(f"📋 No match found, returning folder: {non_setup_folders[0]['path']}")
-                            return non_setup_folders[0]["path"]
+                        score += 3  # Bonus for subfolders of matching parent
                 
-                return None
+                # Penalty for setup folders if user didn't ask
+                if is_setup_folder:
+                    score -= 1
+                
+                if score > best_score:
+                    best_score = score
+                    best_match = folder["path"]
+            
+            # If we found a match with any score, use it (be more lenient)
+            if best_match and best_score > 0:
+                logger.info(f"📋 Using best match despite not_found: {best_match} (score: {best_score})")
+                # Recursively explore the best match
+                result = self._navigate_to_target(best_match, user_query, depth + 1, visited_paths)
+                if result:
+                    return result
+                # If exploration didn't find anything, return the folder itself
+                return best_match
+            
+            # Last resort: if nothing else found and there are setup files, return the best setup file
+            if not user_wants_setup and len(setup_files) > 0 and len(main_executables) == 0:
+                logger.info(f"📋 No main items found, using setup file as last resort")
+                return setup_files[0]["path"]
+            
+            # Even if score is 0, if we're in a matching parent folder, try exploring ALL non-setup folders
+            if depth > 0:
+                parent_name = os.path.basename(start_path).lower()
+                if any(word in parent_name for word in query_words):
+                    # We're in a matching parent folder (e.g., "Davinci"), try all non-setup folders
+                    logger.info(f"📋 In matching parent folder '{parent_name}', checking all subfolders...")
+                    non_setup_folders = [f for f in folders if
+                                         not any(kw in f["name"].lower() for kw in setup_keywords)]
+                    
+                    # Prioritize folders with program-related terms
+                    program_folders = [f for f in non_setup_folders if
+                                       any(term in f["name"].lower() for term in common_program_terms)]
+                    if program_folders:
+                        # Try program folders first
+                        for folder in program_folders:
+                            logger.info(f"📋 Exploring program folder: {folder['path']}")
+                            result = self._navigate_to_target(folder["path"], user_query, depth + 1, visited_paths)
+                            if result:
+                                return result
+                    
+                    # Try other non-setup folders
+                    for folder in non_setup_folders:
+                        if folder not in program_folders:  # Skip already tried
+                            logger.info(f"📋 Exploring folder: {folder['path']}")
+                            result = self._navigate_to_target(folder["path"], user_query, depth + 1, visited_paths)
+                            if result:
+                                return result
+                    
+                    # If we found folders but nothing matched, return the first program folder or first folder
+                    if program_folders:
+                        logger.info(f"📋 No match found, returning program folder: {program_folders[0]['path']}")
+                        return program_folders[0]["path"]
+                    elif non_setup_folders:
+                        logger.info(f"📋 No match found, returning folder: {non_setup_folders[0]['path']}")
+                        return non_setup_folders[0]["path"]
+            
+            return None
         
         else:
-                # Fallback: try to extract path from response
-                path_matches = re.findall(r'([A-Z]:[\\/][^\s"\'<>\)]+)', response_text, re.IGNORECASE)
-                # Sort by length (prefer longer, more complete paths)
-                path_matches = sorted(set(path_matches), key=len, reverse=True)
-                for path_match in path_matches:
-                    path_match = path_match.strip().rstrip('.,;:)')
-                    # Validate path exists and is reasonable
-                    if len(path_match) > 3 and os.path.exists(path_match):
-                        logger.info(f"📋 Extracted path from response: {path_match}")
-                        return path_match
-                    # Try parent if path doesn't exist
-                    elif len(path_match) > 3:
-                        parent = os.path.dirname(path_match)
-                        if os.path.exists(parent) and len(parent) > 3:
-                            logger.info(f"📋 Extracted path, using parent: {parent}")
-                            return parent
-                
-                # If still no path, find best matching folder with variations
-                query_lower = user_query.lower()
-                query_words = extract_keywords(user_query)
-                query_variations = set(query_words)
-                
-                # Add common program-related terms
-                common_program_terms = ["prog", "program", "app", "application", "bin"]
-                if any(word in query_lower for word in ["program", "app", "application", "software"]):
-                    query_variations.update(common_program_terms)
-                
-                folders = listing_data.get("folders", [])
-                best_match = None
-                best_score = 0
-                
-                for folder in folders:
-                    folder_name_lower = folder["name"].lower()
-                    score = sum(1 for word in query_variations if word in folder_name_lower)
-                    # Bonus for program-related folders
-                    if any(term in folder_name_lower for term in common_program_terms):
-                        score += 2
-                    if score > best_score:
-                        best_score = score
-                        best_match = folder["path"]
-                
-                if best_match and best_score > 0:
-                    logger.info(f"📋 Using best folder match: {best_match} (score: {best_score})")
-                    return best_match
-                
-                return None
+            # Fallback: try to extract path from response
+            path_matches = re.findall(r'([A-Z]:[\\/][^\s"\'<>\)]+)', response_text, re.IGNORECASE)
+            # Sort by length (prefer longer, more complete paths)
+            path_matches = sorted(set(path_matches), key=len, reverse=True)
+            for path_match in path_matches:
+                path_match = path_match.strip().rstrip('.,;:)')
+                # Validate path exists and is reasonable
+                if len(path_match) > 3 and os.path.exists(path_match):
+                    logger.info(f"📋 Extracted path from response: {path_match}")
+                    return path_match
+                # Try parent if path doesn't exist
+                elif len(path_match) > 3:
+                    parent = os.path.dirname(path_match)
+                    if os.path.exists(parent) and len(parent) > 3:
+                        logger.info(f"📋 Extracted path, using parent: {parent}")
+                        return parent
+            
+            # If still no path, find best matching folder with variations
+            query_lower = user_query.lower()
+            query_words = extract_keywords(user_query)
+            query_variations = set(query_words)
+            
+            # Add common program-related terms
+            common_program_terms = ["prog", "program", "app", "application", "bin"]
+            if any(word in query_lower for word in ["program", "app", "application", "software"]):
+                query_variations.update(common_program_terms)
+            
+            folders = listing_data.get("folders", [])
+            best_match = None
+            best_score = 0
+            
+            for folder in folders:
+                folder_name_lower = folder["name"].lower()
+                score = sum(1 for word in query_variations if word in folder_name_lower)
+                # Bonus for program-related folders
+                if any(term in folder_name_lower for term in common_program_terms):
+                    score += 2
+                if score > best_score:
+                    best_score = score
+                    best_match = folder["path"]
+            
+            if best_match and best_score > 0:
+                logger.info(f"📋 Using best folder match: {best_match} (score: {best_score})")
+                return best_match
+            
+            return None
     
     def _is_partition_request(self, query: str) -> Optional[str]:
         """Check if user wants to open a partition directly."""
@@ -997,9 +1022,9 @@ SMART DECISION RULES:
             partition_letter = partition[0].lower()
             
             # Direct partition requests
-            if query_lower in [f"open {partition_letter}", f"open {partition_letter}:", 
-                              f"{partition_letter}:", f"{partition_letter} drive",
-                              f"open {partition_letter} drive", f"{partition_letter}:\\"]:
+            if query_lower in [f"open {partition_letter}", f"open {partition_letter}:",
+                               f"{partition_letter}:", f"{partition_letter} drive",
+                               f"open {partition_letter} drive", f"{partition_letter}:\\"]:
                 return partition
             
             # Check if query starts with partition letter
@@ -1079,7 +1104,7 @@ SMART DECISION RULES:
     
     def _find_without_ai(self, user_query: str, partitions: List[str]) -> bool:
         """Fallback search without AI when API is unavailable."""
-        from src.utils.file_system import list_folder_items, extract_keywords
+        from ..utils.file_system import list_folder_items, extract_keywords
         
         query_lower = user_query.lower()
         keywords = extract_keywords(user_query)
@@ -1276,7 +1301,7 @@ SMART DECISION RULES:
         if depth >= 4:  # Limit depth in fallback mode
             return None
         
-        from src.utils.file_system import list_folder_items
+        from ..utils.file_system import list_folder_items
         
         listing = list_folder_items(folder_path, max_items=50)
         if "error" in listing:
@@ -1333,11 +1358,12 @@ SMART DECISION RULES:
             else:
                 print("❌ Failed to open path")
                 return False
-            
+        
         except Exception as e:
             logger.error(f"Error opening path: {e}")
             print(f"❌ Error opening: {e}")
             return False
+
 
 if __name__ == "__main__":
     # Add parent directories to path for imports
@@ -1350,17 +1376,17 @@ if __name__ == "__main__":
     sys.path.insert(0, str(project_root))
     
     # Now import and run
-    from src.utils.logger import setup_logger
+    from ..utils.logger import setup_logger
     
     logger = setup_logger()
     
     try:
         agent = SmartFileSystemAgent()
         
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("🤖 Alquad - Smart File System Agent")
         print("   Powered by Ollama (deepseek-r1:7b-qwen-distill-q4_k_m)")
-        print("="*60)
+        print("=" * 60)
         print(f"\n📂 Available Partitions: {', '.join(agent.partitions)}")
         print("\n💡 Examples:")
         print("   - 'open league of legends'")
@@ -1380,7 +1406,7 @@ if __name__ == "__main__":
                 
                 agent.find_and_open(query)
                 print()  # Empty line for readability
-                
+            
             except KeyboardInterrupt:
                 print("\n\n👋 Goodbye!")
                 break
