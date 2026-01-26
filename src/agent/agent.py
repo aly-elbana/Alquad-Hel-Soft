@@ -12,6 +12,7 @@ from src.utils.file_system import (
     extract_keywords,
     open_path
 )
+from src.utils.google_search import check_and_open_search
 
 logger = logging.getLogger("FileSystemAgent")
 
@@ -1015,7 +1016,20 @@ SMART DECISION RULES:
         """
         logger.info(f"🔍 Processing query: '{user_query}'")
         
-        # Step 0: Check if user wants to open a partition directly
+        # Step 0: Check if user is requesting a Google search (using LLM for intelligent detection)
+        is_search, search_query = check_and_open_search(user_query, llm=self.llm)
+        if is_search:
+            if search_query:
+                logger.info(f"🌐 Google search detected: '{search_query}'")
+                print(f"\n🌐 Opening Google search for: '{search_query}'")
+                print("✅ Browser opened with search results")
+                return True
+            else:
+                logger.warning("⚠️ Search detected but failed to open browser")
+                print("\n⚠️ Failed to open browser for search")
+                return False
+        
+        # Step 1: Check if user wants to open a partition directly
         direct_partition = self._is_partition_request(user_query)
         if direct_partition:
             logger.info(f"📍 Direct partition request: {direct_partition}")
@@ -1024,7 +1038,7 @@ SMART DECISION RULES:
         
         print(f"\n🔍 Searching for: '{user_query}'...")
         
-        # Step 1: Check if user specified a partition in query
+        # Step 2: Check if user specified a partition in query
         query_lower = user_query.lower()
         target_partition = None
         
@@ -1035,7 +1049,7 @@ SMART DECISION RULES:
                 logger.info(f"📍 User specified partition: {partition}")
                 break
         
-        # Step 2: Determine partitions to search
+        # Step 3: Determine partitions to search
         if target_partition:
             partitions_to_search = [target_partition]
         else:
@@ -1047,7 +1061,7 @@ SMART DECISION RULES:
             else:
                 partitions_to_search = self.partitions
         
-        # Step 3: Explore each partition with AI
+        # Step 4: Explore each partition with AI
         for partition in partitions_to_search:
             logger.info(f"🔍 Searching in partition: {partition}")
             print(f"   📂 Checking {partition}...")
