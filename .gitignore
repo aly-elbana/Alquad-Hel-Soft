@@ -52,11 +52,11 @@ vector_db/
 
 # OS
 Thumbs.db
-.DS_Store
 
 # Project specific
 rag_knowledge_base/
-*.md
+/*.md
+!ui/**/*.md
 !README.md
 !README_LLM_SETUP.md
 !CHANGELOG.md

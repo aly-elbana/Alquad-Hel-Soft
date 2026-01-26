@@ -4,9 +4,10 @@ from typing import Optional
 import requests
 import json
 
-from src.config.settings import OLLAMA_CONFIG, AGENT_CONFIG
+from ..config.settings import OLLAMA_CONFIG, AGENT_CONFIG
 
 logger = logging.getLogger("FileSystemAgent")
+
 
 class OllamaClient:
     """Client for interacting with Ollama local API."""
