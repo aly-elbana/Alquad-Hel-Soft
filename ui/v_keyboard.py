@@ -236,7 +236,8 @@ class VirtualKeyboard(QWidget):
     def handle_keypress(self, key_label):
         if key_label == "Exit":
             self.close()
-            return
+            sys.exit()
+            # return
 
         # Toggle between Symbols and Letters
         if key_label == "?123":
@@ -331,5 +332,5 @@ if __name__ == "__main__":
 
 
 """type testing:
-#$^&`~
+#$^&`~e
 """
