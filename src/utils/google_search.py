@@ -192,16 +192,19 @@ def is_search_request_with_llm(query: str, llm) -> bool:
 User Query: "{query}"
 
 Respond with ONLY a JSON object in this exact format:
-{{"is_search_request": true/false, "reason": "brief explanation"}}
+{{"is_search_request": true/false, "reason": "brief explanation", "search_query": "search query if applicable"}}
 
 Examples:
-- "search for python tutorials" -> {{"is_search_request": true, "reason": "explicit search request"}}
-- "what is machine learning" -> {{"is_search_request": true, "reason": "information-seeking question"}}
-- "open chrome" -> {{"is_search_request": false, "reason": "requesting to open an application"}}
-- "find my documents folder" -> {{"is_search_request": false, "reason": "requesting to find a local folder"}}
-- "search for python" -> {{"is_search_request": true, "reason": "explicit search request"}}
+- "search for python tutorials" -> {{"is_search_request": true, "reason": "explicit search request", "google_search_query": "python tutorials"}}
+- "what is machine learning" -> {{"is_search_request": true, "reason": "information-seeking question", "google_search_query": "machine learning"}}
+- "open chrome" -> {{"is_search_request": false, "reason": "requesting to open an application", "search_query": "chrome"}}
+- "find my documents folder" -> {{"is_search_request": false, "reason": "requesting to find a local folder", "search_query": "documents folder"}}
+- "search for python" -> {{"is_search_request": true, "reason": "explicit search request", "google_search_query": "python"}}
 - "open python" -> {{"is_search_request": false, "reason": "requesting to open an application"}}
 
+IMPORTANT: On the return don't return the key word that made you search on google, instade return only the query
+IMPORTANT: If the user is asking to find or open something on their computer, return false.
+IMPORTANT: Tweak the search query to be more accurate and specific. For example, if the user says "search for python tutorials", the search query should be "python tutorials". If the user says "search for python", the search query should be "python".
 IMPORTANT: Only return true for search requests if the user is clearly asking to search the web/Google for information. If they're asking to find or open something on their computer, return false."""
 
     try:
