@@ -18,6 +18,7 @@ from pynput.keyboard import Controller, Key
 # Try to import keyboard lib
 try:
     import keyboard as kb_lib
+
     HAS_KEYBOARD_LIB = True
 except ImportError:
     HAS_KEYBOARD_LIB = False
@@ -27,6 +28,7 @@ if platform.system() == "Windows":
     try:
         import win32gui
         import win32con
+
         HAS_WIN32 = True
     except ImportError:
         HAS_WIN32 = False
@@ -126,7 +128,21 @@ class VirtualKeyboard(QWidget):
             "AR_letters": [
                 ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "Back"],
                 ["ض", "ص", "ث", "ق", "ف", "غ", "ع", "ه", "خ", "ح", "ج", "د"],
-                ["Caps", "ش", "س", "ي", "ب", "ل", "ا", "ت", "ن", "م", "ك", "ط", "Enter"],
+                [
+                    "Caps",
+                    "ش",
+                    "س",
+                    "ي",
+                    "ب",
+                    "ل",
+                    "ا",
+                    "ت",
+                    "ن",
+                    "م",
+                    "ك",
+                    "ط",
+                    "Enter",
+                ],
                 ["Shift", "ئ", "ء", "ؤ", "ر", "لا", "ى", "ة", "و", "ز", "ظ", "Exit"],
                 ["?123", "Lang", "Ctrl", "Alt", "Space"],
             ],
@@ -163,7 +179,9 @@ class VirtualKeyboard(QWidget):
                 hwnd = int(self.winId())
                 ex_style = win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE)
                 # WS_EX_NOACTIVATE (0x08000000) prevents the window from becoming active on click
-                new_style = ex_style | win32con.WS_EX_NOACTIVATE | win32con.WS_EX_TOPMOST
+                new_style = (
+                    ex_style | win32con.WS_EX_NOACTIVATE | win32con.WS_EX_TOPMOST
+                )
                 win32gui.SetWindowLong(hwnd, win32con.GWL_EXSTYLE, new_style)
             except Exception:
                 pass
@@ -194,7 +212,7 @@ class VirtualKeyboard(QWidget):
         while self.container_layout.count():
             item = self.container_layout.takeAt(0)
             if item.widget():
-                item.widget().deleteLater()
+                item.widget().deleteLater()  # type: ignore
             elif item.layout():
                 self.clear_sub_layout(item.layout())
 
@@ -223,10 +241,19 @@ class VirtualKeyboard(QWidget):
                 # Special widths
                 if key == "Lang":
                     btn.setText("AR" if self.language == "EN" else "EN")
-                
+
                 if key == "Space":
                     btn.setMinimumWidth(400)
-                elif key in ["Back", "Enter", "Shift", "Exit", "Caps", "?123", "ABC", "Lang"]:
+                elif key in [
+                    "Back",
+                    "Enter",
+                    "Shift",
+                    "Exit",
+                    "Caps",
+                    "?123",
+                    "ABC",
+                    "Lang",
+                ]:
                     btn.setMinimumWidth(85)
                 else:
                     btn.setFixedSize(65, 55)
@@ -268,22 +295,30 @@ class VirtualKeyboard(QWidget):
 
         # --- KEY MAPPING ---
         # Map UI Labels to proper internal names
-        key_map = {
-            "Back": "backspace", 
-            "Enter": "\n", 
-            "Space": " "
-        }
+        key_map = {"Back": "backspace", "Enter": "\n", "Space": " "}
         target_key = key_map.get(key_label, key_label)
 
         # Handle Case (Upper/Lower) for single letters
-        if self.language == "EN" and self.layout_mode == "letters" and len(target_key) == 1:
-            is_caps = self.modifiers.get("Caps").is_active() if "Caps" in self.modifiers else False
-            is_shift = self.modifiers.get("Shift").is_active() if "Shift" in self.modifiers else False
-            
+        if (
+            self.language == "EN"
+            and self.layout_mode == "letters"
+            and len(target_key) == 1  # type: ignore
+        ):
+            is_caps = (
+                self.modifiers.get("Caps").is_active()  # type: ignore
+                if "Caps" in self.modifiers
+                else False
+            )
+            is_shift = (
+                self.modifiers.get("Shift").is_active()  # type: ignore
+                if "Shift" in self.modifiers
+                else False
+            )
+
             if is_caps != is_shift:
-                target_key = target_key.upper()
+                target_key = target_key.upper()  # type: ignore
             else:
-                target_key = target_key.lower()
+                target_key = target_key.lower()  # type: ignore
 
         self._send_key(target_key)
 
@@ -292,32 +327,43 @@ class VirtualKeyboard(QWidget):
         Sends the key event.
         - key_to_send: "a", "A", "backspace", "enter", "space", etc.
         """
-        
+
         # 1. Identify Modifiers
         active_mods = []
-        if self.modifiers.get("Ctrl") and self.modifiers.get("Ctrl").is_active():
+        if self.modifiers.get("Ctrl") and self.modifiers.get("Ctrl").is_active():  # type: ignore
             active_mods.append("ctrl")
-        if self.modifiers.get("Alt") and self.modifiers.get("Alt").is_active():
+        if self.modifiers.get("Alt") and self.modifiers.get("Alt").is_active():  # type: ignore
             active_mods.append("alt")
-        if self.modifiers.get("Shift") and self.modifiers.get("Shift").is_active():
+        if self.modifiers.get("Shift") and self.modifiers.get("Shift").is_active():  # type: ignore
             active_mods.append("shift")
 
         # 2. Try using the 'keyboard' library (Preferred for Windows)
         if HAS_KEYBOARD_LIB:
             try:
                 # LIST OF KEYS THAT MUST BE 'PRESSED' (Commands), NOT 'WRITTEN' (Text)
-                command_keys = ["backspace", "enter", "space", "tab", "esc", "delete", "up", "down", "left", "right"]
+                command_keys = [
+                    "backspace",
+                    "enter",
+                    "space",
+                    "tab",
+                    "esc",
+                    "delete",
+                    "up",
+                    "down",
+                    "left",
+                    "right",
+                ]
 
                 if active_mods:
                     # Case A: Modifiers are active (e.g., Ctrl+C, Ctrl+Backspace)
                     combo = "+".join(active_mods) + "+" + key_to_send
                     kb_lib.send(combo)
-                
+
                 elif key_to_send.lower() in command_keys:
                     # Case B: It is a command key (e.g., Backspace)
                     # Use press_and_release to ensure it acts as a keystroke, not text
                     kb_lib.press_and_release(key_to_send)
-                
+
                 else:
                     # Case C: It is a normal character (e.g., 'a', '1', 'ش')
                     # Use write so it handles Unicode/Arabic correctly
@@ -341,7 +387,7 @@ class VirtualKeyboard(QWidget):
         for mod in active_mods:
             if hasattr(Key, mod):
                 self.keyboard_controller.press(getattr(Key, mod))
-        
+
         # Press Key
         # Check if the string matches a Pynput Key attribute (e.g. "backspace" -> Key.backspace)
         # Note: Pynput attributes are usually lowercase
@@ -361,7 +407,7 @@ class VirtualKeyboard(QWidget):
         y_end = screen.height() - self.height() - 50
         self.move(x, screen.height() + 10)
         self.show()
-        
+
         self.slide_anim.setTargetObject(self)
         self.slide_anim.setPropertyName(b"pos")
         self.slide_anim.setDuration(500)
@@ -376,7 +422,7 @@ if __name__ == "__main__":
     kb = VirtualKeyboard()
     QTimer.singleShot(100, kb.show_animated)
     sys.exit(app.exec())
-    
+
 """
 
 """
