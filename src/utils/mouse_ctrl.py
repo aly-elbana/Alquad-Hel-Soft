@@ -1,98 +1,154 @@
 import serial
 import pyautogui
 import time
+import numpy as np
 
+
+# ================= كلاس الكالمان فلتر (للنعومة) =================
+class KalmanFilter:
+    def __init__(self, process_noise=0.1, measurement_noise=5.0, estimated_error=1.0):
+        self.q = process_noise
+        self.r = measurement_noise
+        self.p = estimated_error
+        self.x = 0.0
+
+    def update(self, measurement):
+        self.p = self.p + self.q
+        k = self.p / (self.p + self.r)
+        self.x = self.x + k * (measurement - self.x)
+        self.p = (1 - k) * self.p
+        return self.x
+
+
+# ================= الإعدادات =================
 try:
-    # نفس البورت والسرعة بتوعك
-    arduino = serial.Serial("COM5", 115200, timeout=0.1)
+    # تأكد من رقم الـ COM الجديد
+    arduino = serial.Serial("COM9", 115200, timeout=0.01)
     time.sleep(2)
-    print("تم الاتصال! حط السنسور على الترابيزة واثبت...")
+    print("تم الاتصال! النظام جاهز...")
 except Exception as e:
     print(f"مشكلة اتصال: {e}")
     exit()
 
-# ================= إعدادات الفلترة (نفس أرقامك) =================
-DEADZONE = 150
+pyautogui.FAILSAFE = False
+pyautogui.PAUSE = 0
 
-# ================= متغيرات المعايرة =================
+# الفلاتر
+kf_x = KalmanFilter(process_noise=0.1, measurement_noise=5.0)
+kf_y = KalmanFilter(process_noise=0.1, measurement_noise=5.0)
+
+# متغيرات المعايرة
 offset_x = 0
 offset_y = 0
 calibration_samples = 0
 is_calibrated = False
+SPEED_FACTOR = 150
+SCROLL_SPEED = 5  # سرعة السكرول (كل ما يقل يبقى أسرع)
 
-# ================= إعدادات السرعة =================
-sensitivity_divider = 200
-pyautogui.PAUSE = 0
-pyautogui.FAILSAFE = False
+# متغيرات الأزرار والمنطق
+is_dragging = False  # حالة الإمساك
+is_scroll_mode = False  # حالة السكرول
+right_btn_timer = 0  # لحساب وقت الضغط
+right_btn_down = False  # هل الزرار مضغوط حالياً؟
+scroll_btn_state_prev = 0  # عشان التبديل (Toggle)
+left_btn_state_prev = 0  # لمنع تكرار الكليك
 
-# متغير لمنع تكرار الكليك
-btn_pressed = False
-
-print("\n!!! جاري حساب الصفر... لا تلمس السنسور !!!\n")
+print("\n!!! اثبت للمعايرة !!!\n")
 
 while True:
     try:
         if arduino.in_waiting > 0:
-            data = arduino.readline().decode("utf-8").strip()
+            line = arduino.readline().decode("utf-8", errors="ignore").strip()
 
-            if "," in data:
-                parts = data.split(",")
-                # عدلنا الشرط لـ 4 عشان نستقبل الزرارين كمان
-                if len(parts) == 4:
+            if "," in line:
+                parts = line.split(",")
+                # لازم نستقبل 5 قيم دلوقتي
+                if len(parts) == 5:
                     raw_gz = float(parts[0])
                     raw_gy = float(parts[1])
-                    btn_d3 = int(parts[2])  # زرار D3
-                    btn_d5 = int(parts[3])  # زرار D5
+                    btn_left = int(parts[2])
+                    btn_right = int(parts[3])
+                    btn_scroll = int(parts[4])
 
-                    # 1. مرحلة المعايرة (زي ما هي)
+                    # --- 1. المعايرة ---
                     if not is_calibrated:
                         offset_x += raw_gz
                         offset_y += raw_gy
                         calibration_samples += 1
-
-                        if calibration_samples % 50 == 0:
-                            print(f"جاري المعايرة... {calibration_samples}/500")
-
                         if calibration_samples >= 500:
                             offset_x /= 500
                             offset_y /= 500
                             is_calibrated = True
-                            print("\n=== تمت المعايرة بنجاح! البس السنسور دلوقتي ===\n")
+                            print("\n=== تمت المعايرة! ===")
+                            print("- الزرار 1: كليك شمال")
+                            print("- الزرار 2: ضغطة سريعة (يمين) / طويلة (Drag)")
+                            print("- الزرار 3: تفعيل/إلغاء السكرول")
                         continue
 
-                    # 2. تطبيق المعايرة
-                    corrected_gz = raw_gz - offset_x
-                    corrected_gy = raw_gy - offset_y
+                    # --- 2. معالجة الحركة ---
+                    val_x = raw_gz - offset_x
+                    val_y = raw_gy - offset_y
+                    smooth_x = kf_x.update(val_x)
+                    smooth_y = kf_y.update(val_y)
 
-                    # 3. الفلتر القوي (Deadzone) - زي كودك بالظبط
-                    if abs(corrected_gz) < DEADZONE:
-                        corrected_gz = 0
-                    if abs(corrected_gy) < DEADZONE:
-                        corrected_gy = 0
-
-                    # 4. معادلة الحركة (زي كودك بالظبط)
-                    move_x = corrected_gz / sensitivity_divider
-                    move_y = -1 * (corrected_gy / sensitivity_divider)
-
-                    # لو فيه حركة، نفذها
-                    if corrected_gz != 0 or corrected_gy != 0:
-                        pyautogui.moveRel(move_x, move_y)
-
-                    # ================= 5. منطق الزراير (الجديد) =================
-                    # لو أي زرار مضغوط
-                    if btn_d3 == 1 or btn_d5 == 1:
-                        if not btn_pressed:  # عشان ينفذ الأمر مرة واحدة بس
-                            if btn_d3 == 1:
-                                pyautogui.click(button="left")
-                                print("Left Click (D3)")
-                            elif btn_d5 == 1:
-                                pyautogui.click(button="right")
-                                print("Right Click (D5)")
-
-                            btn_pressed = True  # اقفل البوابة
+                    # --- 3. تنفيذ الحركة أو السكرول ---
+                    if is_scroll_mode:
+                        # في وضع السكرول: حركة الراس فوق/تحت تعمل سكرول
+                        if abs(smooth_y) > 100:
+                            scroll_amount = int(smooth_y / SCROLL_SPEED)
+                            pyautogui.scroll(scroll_amount)
+                        # (ممكن تضيف سكرول أفقي بحركة الراس يمين/شمال لو حابب)
                     else:
-                        btn_pressed = False  # افتح البوابة لما يشيل ايده
+                        # الوضع العادي: تحريك الماوس
+                        if abs(smooth_x) > 100:
+                            move_x = smooth_x / SPEED_FACTOR
+                        else:
+                            move_x = 0
 
-    except Exception as e:
-        print(f"Error: {e}")
+                        if abs(smooth_y) > 100:
+                            move_y = -1 * (smooth_y / SPEED_FACTOR)
+                        else:
+                            move_y = 0
+
+                        if move_x != 0 or move_y != 0:
+                            pyautogui.moveRel(move_x, move_y)
+
+                    # --- 4. منطق الزرار الأيسر (Left Click) ---
+                    if btn_left == 1 and left_btn_state_prev == 0:
+                        pyautogui.click()
+                    left_btn_state_prev = btn_left
+
+                    # --- 5. منطق الزرار الأيمن (Right Click VS Drag) ---
+                    if btn_right == 1:
+                        if not right_btn_down:
+                            right_btn_timer = time.time()  # ابدأ العد
+                            right_btn_down = True
+                    else:
+                        if right_btn_down:  # لحظة رفع اليد
+                            duration = time.time() - right_btn_timer
+                            if duration < 0.5:  # لو الضغطة أقل من نص ثانية
+                                pyautogui.rightClick()
+                                print("Right Click")
+                            else:  # لو الضغطة طويلة
+                                is_dragging = not is_dragging  # اعكس الحالة
+                                if is_dragging:
+                                    pyautogui.mouseDown()
+                                    print(">>> Drag ON (ماسك الملف) <<<")
+                                else:
+                                    pyautogui.mouseUp()
+                                    print(">>> Drag OFF (سيبت الملف) <<<")
+                            right_btn_down = False
+
+                    # --- 6. منطق زرار السكرول (Toggle) ---
+                    if btn_scroll == 1 and scroll_btn_state_prev == 0:
+                        is_scroll_mode = not is_scroll_mode  # اعكس الحالة
+                        if is_scroll_mode:
+                            print("--- Scroll Mode ACTIVE (حرك راسك فوق وتحت) ---")
+                        else:
+                            print("--- Mouse Mode ACTIVE ---")
+                    scroll_btn_state_prev = btn_scroll
+
+    except KeyboardInterrupt:
         break
+    except Exception as e:
+        pass
