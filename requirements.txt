@@ -10,3 +10,6 @@ faster-whisper>=0.10.0
 SpeechRecognition>=3.10.0
 pyaudio>=0.2.14
 deep-translator>=1.11.4
+PySide6>=6.5.1
+keyboard>=0.13.5
+pynput>=1.7.6

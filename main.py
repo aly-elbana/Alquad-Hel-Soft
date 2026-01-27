@@ -2,11 +2,7 @@ import sys
 from pathlib import Path
 from src.utils.logger import setup_logger
 from src.agent.agent import SmartFileSystemAgent
-from src.config.settings import (
-    LLM_PROVIDER,
-    OLLAMA_CONFIG,
-    GEMINI_MODELS
-)
+from src.config.settings import LLM_PROVIDER, OLLAMA_CONFIG, GEMINI_MODELS
 
 BASE_DIR = Path(__file__).parent
 sys.path.insert(0, str(BASE_DIR))
@@ -57,10 +53,7 @@ def load_whisper(logger):
         from src.utils.whisper_transcriber import WhisperTranscriber
 
         whisper = WhisperTranscriber(
-            model_size="medium",
-            device="cpu",
-            compute_type="int8",
-            beam_size=3
+            model_size="medium", device="cpu", compute_type="int8", beam_size=3
         )
 
         print("\nVoice input enabled (Whisper)")
@@ -110,9 +103,11 @@ def main():
                 # Input Selection
                 # =====================
                 if use_voice:
-                    choice = input(
-                        "Input (Enter=text, 'v'=voice, 'q'=quit): "
-                    ).strip().lower()
+                    choice = (
+                        input("Input (Enter=text, 'v'=voice, 'q'=quit): ")
+                        .strip()
+                        .lower()
+                    )
 
                     if choice == "q":
                         break
