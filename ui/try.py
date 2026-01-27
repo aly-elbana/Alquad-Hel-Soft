@@ -9,9 +9,7 @@ if __name__ == "__main__":
     
     # Dict with your file/folder names and absolute paths
     my_files = {
-        "Documents": os.path.expanduser("~/Documents"),
-        "Scripts": os.path.abspath("../"),
-        "Config": "C:/Windows/System32/drivers/etc/hosts" if sys.platform == "win32" else "/etc/hosts",
+        "CV (2025)": "D:/Certificates/CV (2025).pdf",
         "The Hobbit: The Fellowship": "D:/Entertainment/movies/The Hobbit The Battle of the Five Armies 2014.mp4"
     }
     
@@ -26,4 +24,5 @@ if __name__ == "__main__":
     
     launcher.show_animated()
     sys.exit(app.exec())
+    
     
