@@ -33,8 +33,8 @@ class FileLauncher(QWidget):
         self._is_closing = False  # Prevent redundant animation triggers
 
         # 1. Window Configuration
-        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
-        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)  # type: ignore
+        self.setAttribute(Qt.WA_TranslucentBackground)  # type: ignore
 
         # 2. UI Layout Setup
         self.main_layout = QVBoxLayout(self)
@@ -81,7 +81,7 @@ class FileLauncher(QWidget):
         btn.setIcon(icon)
         btn.setIconSize(QSize(54, 54))
         btn.setFixedSize(70, 70)
-        btn.setCursor(Qt.PointingHandCursor)
+        btn.setCursor(Qt.PointingHandCursor)  # type: ignore
         btn.setStyleSheet(
             """
             QPushButton {
@@ -97,13 +97,13 @@ class FileLauncher(QWidget):
         btn.clicked.connect(lambda: self._launch(path))
 
         label = QLabel(name)
-        label.setAlignment(Qt.AlignCenter)
+        label.setAlignment(Qt.AlignCenter)  # type: ignore
         label.setFixedWidth(85)
         label.setWordWrap(True)
         label.setStyleSheet("color: #E0E0E0; font-size: 12px; font-weight: 500;")
 
-        item_layout.addWidget(btn, alignment=Qt.AlignCenter)
-        item_layout.addWidget(label, alignment=Qt.AlignCenter)
+        item_layout.addWidget(btn, alignment=Qt.AlignCenter)  # type: ignore
+        item_layout.addWidget(label, alignment=Qt.AlignCenter)  # type: ignore
 
         return item_container
 
@@ -128,13 +128,13 @@ class FileLauncher(QWidget):
         self.fade_in.setDuration(300)
         self.fade_in.setStartValue(0.0)
         self.fade_in.setEndValue(1.0)
-        self.fade_in.setEasingCurve(QEasingCurve.OutCubic)
+        self.fade_in.setEasingCurve(QEasingCurve.OutCubic)  # type: ignore
 
         self.slide_in = QPropertyAnimation(self, b"pos")
         self.slide_in.setDuration(400)
         self.slide_in.setStartValue(self.pos() + QPoint(0, 40))
         self.slide_in.setEndValue(self.pos())
-        self.slide_in.setEasingCurve(QEasingCurve.OutBack)
+        self.slide_in.setEasingCurve(QEasingCurve.OutBack)  # type: ignore
 
         self.fade_in.start()
         self.slide_in.start()
@@ -154,7 +154,7 @@ class FileLauncher(QWidget):
 
     def changeEvent(self, event: QEvent):
         """Detects when the window loses focus to dismiss it."""
-        if event.type() == QEvent.ActivationChange:
+        if event.type() == QEvent.ActivationChange:  # type: ignore
             if not self.isActiveWindow():
                 self.hide_animated()
                 sys.exit(0)
