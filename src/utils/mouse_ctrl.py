@@ -1,4 +1,5 @@
 import serial
+import serial.tools.list_ports
 import pyautogui
 import time
 import numpy as np
@@ -20,15 +21,52 @@ class KalmanFilter:
         return self.x
 
 
+# ================= دالة البحث التلقائي عن البورت =================
+def auto_connect_esp32(baud_rate=115200):
+    ports = serial.tools.list_ports.comports()
+    available_ports = [port.device for port in ports]
+
+    if not available_ports:
+        print("❌ لم يتم العثور على أي بورتات متصلة بالجهاز!")
+        return None
+
+    print(f"🔍 البورتات المتاحة للبحث: {available_ports}")
+
+    for port in available_ports:
+        try:
+            print(f"⏳ جاري تجربة البورت {port}...")
+            # timeout=1 عشان ميطولش لو البورت مش بتاعنا
+            temp_serial = serial.Serial(port, baud_rate, timeout=1)
+            time.sleep(1.5)  # وقت كافي لفتح الاتصال بالبلوتوث
+
+            temp_serial.reset_input_buffer()
+            # نقرأ 5 سطور للتأكد إن الداتا بتاعتنا بتتبعت
+            for _ in range(5):
+                line = temp_serial.readline().decode("utf-8", errors="ignore").strip()
+                # إحنا مستنيين 5 قيم بينهم 4 فواصل (Commas)
+                if line.count(",") == 4:
+                    print(f"✅ تم الاتصال بنجاح بالخوذة على البورت: {port}")
+                    # نرجع الـ timeout لـ 0.01 زي كودك الأصلي عشان السرعة
+                    temp_serial.timeout = 0.01
+                    return temp_serial
+
+            # لو فتح البورت بس الداتا مش مطابقة، نقفله ونجرب غيره
+            temp_serial.close()
+        except (OSError, serial.SerialException):
+            # نتجاهل البورت لو مقفول أو مشغول ببرنامج تاني
+            pass
+
+    print("❌ لم يتم العثور على الخوذة. تأكد من تشغيلها وارتباط البلوتوث.")
+    return None
+
+
 # ================= الإعدادات =================
-try:
-    # تأكد من رقم الـ COM الجديد
-    arduino = serial.Serial("COM9", 115200, timeout=0.01)
-    time.sleep(2)
-    print("تم الاتصال! النظام جاهز...")
-except Exception as e:
-    print(f"مشكلة اتصال: {e}")
-    exit()
+
+arduino = auto_connect_esp32(115200)
+
+if arduino is None:
+    print("إيقاف التشغيل...")
+    exit()  # نقفل البرنامج لو ملقيناش الخوذة
 
 pyautogui.FAILSAFE = False
 pyautogui.PAUSE = 0
@@ -62,7 +100,6 @@ while True:
 
             if "," in line:
                 parts = line.split(",")
-                # لازم نستقبل 5 قيم دلوقتي
                 if len(parts) == 5:
                     raw_gz = float(parts[0])
                     raw_gy = float(parts[1])
@@ -79,7 +116,7 @@ while True:
                             offset_x /= 500
                             offset_y /= 500
                             is_calibrated = True
-                            print("\n=== تمت المعايرة! ===")
+                            print("\n=== تمت المعايرة بنجاح! ===")
                             print("- الزرار 1: كليك شمال")
                             print("- الزرار 2: ضغطة سريعة (يمين) / طويلة (Drag)")
                             print("- الزرار 3: تفعيل/إلغاء السكرول")
@@ -93,13 +130,10 @@ while True:
 
                     # --- 3. تنفيذ الحركة أو السكرول ---
                     if is_scroll_mode:
-                        # في وضع السكرول: حركة الراس فوق/تحت تعمل سكرول
                         if abs(smooth_y) > 100:
                             scroll_amount = int(smooth_y / SCROLL_SPEED)
                             pyautogui.scroll(scroll_amount)
-                        # (ممكن تضيف سكرول أفقي بحركة الراس يمين/شمال لو حابب)
                     else:
-                        # الوضع العادي: تحريك الماوس
                         if abs(smooth_x) > 100:
                             move_x = smooth_x / SPEED_FACTOR
                         else:
@@ -113,35 +147,35 @@ while True:
                         if move_x != 0 or move_y != 0:
                             pyautogui.moveRel(move_x, move_y)
 
-                    # --- 4. منطق الزرار الأيسر (Left Click) ---
+                    # --- 4. منطق الزرار الأيسر ---
                     if btn_left == 1 and left_btn_state_prev == 0:
                         pyautogui.click()
                     left_btn_state_prev = btn_left
 
-                    # --- 5. منطق الزرار الأيمن (Right Click VS Drag) ---
+                    # --- 5. منطق الزرار الأيمن ---
                     if btn_right == 1:
                         if not right_btn_down:
-                            right_btn_timer = time.time()  # ابدأ العد
+                            right_btn_timer = time.time()
                             right_btn_down = True
                     else:
-                        if right_btn_down:  # لحظة رفع اليد
+                        if right_btn_down:
                             duration = time.time() - right_btn_timer
-                            if duration < 0.5:  # لو الضغطة أقل من نص ثانية
+                            if duration < 0.5:
                                 pyautogui.rightClick()
                                 print("Right Click")
-                            else:  # لو الضغطة طويلة
-                                is_dragging = not is_dragging  # اعكس الحالة
+                            else:
+                                is_dragging = not is_dragging
                                 if is_dragging:
                                     pyautogui.mouseDown()
                                     print(">>> Drag ON (ماسك الملف) <<<")
                                 else:
                                     pyautogui.mouseUp()
                                     print(">>> Drag OFF (سيبت الملف) <<<")
-                            right_btn_down = False
+                        right_btn_down = False
 
-                    # --- 6. منطق زرار السكرول (Toggle) ---
+                    # --- 6. منطق زرار السكرول ---
                     if btn_scroll == 1 and scroll_btn_state_prev == 0:
-                        is_scroll_mode = not is_scroll_mode  # اعكس الحالة
+                        is_scroll_mode = not is_scroll_mode
                         if is_scroll_mode:
                             print("--- Scroll Mode ACTIVE (حرك راسك فوق وتحت) ---")
                         else:
@@ -149,6 +183,7 @@ while True:
                     scroll_btn_state_prev = btn_scroll
 
     except KeyboardInterrupt:
+        print("\nتم إيقاف النظام بواسطة المستخدم.")
         break
     except Exception as e:
         pass
